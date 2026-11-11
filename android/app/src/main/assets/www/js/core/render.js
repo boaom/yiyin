@@ -40,6 +40,13 @@ export function calcBgImgSize(sizeInfo, opt, height) {
     resetHeight = Math.ceil(resetWidth / whRate)
   }
 
+  // 主体宽度限制可能把高度压低，导致文字溢出画布；内容高度必须优先满足
+  if (height && resetHeight < height) {
+    resetHeight = height
+    resetWidth = Math.max(Math.ceil(resetHeight * whRate), Math.ceil(sizeInfo.w / mainImgWidthRate))
+    resetHeight = Math.ceil(resetWidth / whRate)
+  }
+
   return { w: resetWidth, h: resetHeight, top: 0, left: 0 }
 }
 
@@ -245,10 +252,11 @@ export async function renderYiyin(p) {
 
   ctx.drawImage(maskCanvas, 0, 0, bg.w, bg.h)
 
+  // 文字：用（可能含底部留白的）布局高度定位，但按 canvas 原始尺寸绘制，不能拉伸
   for (let i = textImages.length - 1, top = bg.h; i >= 0; i--) {
     const t = textImages[i]
     top -= t.h
-    ctx.drawImage(t.canvas, Math.round((bg.w - t.w) / 2), Math.round(top), t.w, t.h)
+    ctx.drawImage(t.canvas, Math.round((bg.w - t.canvas.width) / 2), Math.round(top), t.canvas.width, t.canvas.height)
   }
 
   onProgress(100)

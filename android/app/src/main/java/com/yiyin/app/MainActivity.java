@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Base64;
+import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -108,6 +109,7 @@ public class MainActivity extends Activity {
 
             @Override
             public void onPageFinished(WebView view, String url) {
+                Log.i("Yiyin", "onPageFinished " + url);
                 pageReady = true;
                 sendPendingUri();
             }
@@ -145,20 +147,30 @@ public class MainActivity extends Activity {
 
         webView.loadUrl(HOME_URL);
         pendingViewUri = extractImageUri(getIntent());
+        Log.i("Yiyin", "onCreate intent=" + getIntent() + " pending=" + pendingViewUri);
     }
 
     private Uri extractImageUri(Intent intent) {
         if (intent == null) return null;
         String action = intent.getAction();
-        if (Intent.ACTION_VIEW.equals(action)) return intent.getData();
-        if (Intent.ACTION_SEND.equals(action)) {
+        Uri uri = null;
+        if (Intent.ACTION_VIEW.equals(action)) {
+            uri = intent.getData();
+        } else if (Intent.ACTION_SEND.equals(action)) {
             if (Build.VERSION.SDK_INT >= 33) {
-                return intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
+                try {
+                    uri = intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
+                } catch (Exception ignored) {
+                }
             }
-            Object extra = intent.getParcelableExtra(Intent.EXTRA_STREAM);
-            return extra instanceof Uri ? (Uri) extra : null;
+            if (uri == null) {
+                Object extra = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                if (extra instanceof Uri) uri = (Uri) extra;
+                else if (extra instanceof String) uri = Uri.parse((String) extra);
+            }
+            if (uri == null && intent.getData() != null) uri = intent.getData();
         }
-        return null;
+        return uri;
     }
 
     @Override
@@ -199,6 +211,7 @@ public class MainActivity extends Activity {
 
     private void sendPendingUri() {
         final Uri uri = pendingViewUri;
+        Log.i("Yiyin", "sendPendingUri uri=" + uri + " pageReady=" + pageReady);
         if (uri == null || !pageReady || webView == null) return;
         pendingViewUri = null;
 
@@ -219,8 +232,10 @@ public class MainActivity extends Activity {
                     runOnUiThread(() -> webView.evaluateJavascript(
                             "window.__yiyinOpenChunk(" + JSONObject.quote(part) + ")", null));
                 }
+                Log.i("Yiyin", "streamed bytes=" + bos.size() + " b64=" + b64.length());
                 runOnUiThread(() -> webView.evaluateJavascript("window.__yiyinOpenEnd()", null));
             } catch (Exception e) {
+                Log.e("Yiyin", "open failed", e);
                 toast("打开图片失败：" + e.getMessage());
             }
         }).start();
