@@ -1,0 +1,54 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.yiyin.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.yiyin.app'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    signingConfigs {
+        release {
+            // 开发签名（仓库内固定 key，方便 CI 出包后直接覆盖安装）
+            storeFile file('../signing/yiyin.p12')
+            storeType 'PKCS12'
+            storePassword 'yiyinapk'
+            keyAlias 'yiyin'
+            keyPassword 'yiyinapk'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.release
+        }
+        debug {
+            applicationIdSuffix '.debug'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            output.outputFileName = "yiyin-android-${variant.versionName}-${variant.buildType.name}.apk"
+        }
+    }
+}

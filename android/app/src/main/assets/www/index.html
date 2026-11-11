@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#0b0c0e" />
+<title>壹印 · 照片印框</title>
+<link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+<div id="app">
+  <header class="bar">
+    <div class="brand">
+      <span class="logo">壹印</span>
+      <span class="tag">ANDROID</span>
+    </div>
+    <div class="bar-actions">
+      <button id="btn-save" class="iconbtn" title="保存到相册" disabled>保存</button>
+      <button id="btn-more" class="iconbtn ghost" title="更多">⋯</button>
+    </div>
+  </header>
+
+  <section class="stage" id="stage">
+    <div class="stage-inner">
+      <div class="frame" id="frame">
+        <canvas id="preview"></canvas>
+        <div class="empty" id="empty">
+          <div class="empty-mark">印</div>
+          <p>选一张照片，自动读取相机参数</p>
+          <label class="pick" for="file">选择照片</label>
+        </div>
+        <div class="busy" id="busy"><div class="busy-bar"><i id="busybar"></i></div><span id="busytext">渲染中</span></div>
+      </div>
+      <div class="thumbs" id="thumbs"></div>
+    </div>
+    <input type="file" id="file" accept="image/*" multiple hidden />
+  </section>
+
+  <section class="panel" id="panel">
+    <nav class="tabs" id="tabs">
+      <button data-tab="frame" class="on">印框</button>
+      <button data-tab="text">文字</button>
+      <button data-tab="field">字段</button>
+      <button data-tab="font">字体</button>
+    </nav>
+    <div class="tabbody" id="tabbody"></div>
+  </section>
+
+  <footer class="cta">
+    <button id="btn-render" class="primary" disabled>生成印框</button>
+    <button id="btn-share" class="secondary" disabled>分享</button>
+  </footer>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="sheet-inner">
+    <div class="sheet-head"><span id="sheet-title">更多</span><button id="sheet-close" class="iconbtn ghost">×</button></div>
+    <div class="sheet-body" id="sheet-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="vendor/exif-reader.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
