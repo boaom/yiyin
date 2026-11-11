@@ -538,7 +538,7 @@ function buildFrameTab() {
   body.appendChild(rangeRow('背景模糊', '背景虚化强度', 0, 200, 5, () => o().bg_blur, v => { o().bg_blur = v }, v => `${v}%`))
   body.appendChild(rangeRow('主图宽度', '照片占画面比例', 40, 100, 1, () => o().main_img_w_rate, v => { o().main_img_w_rate = v }, v => `${v}%`))
   body.appendChild(switchRow('圆角', '照片圆角显示', () => o().radius_show, v => { o().radius_show = v }))
-  body.appendChild(rangeRow('圆角大小', '', 0, 10, 0.1, () => o().radius, v => { o().radius = v; o().radius_show = true }, v => `${v.toFixed(1)}%`))
+  body.appendChild(rangeRow('圆角大小', '', 0, 20, 0.1, () => o().radius, v => { o().radius = v; o().radius_show = true }, v => `${v.toFixed(1)}%`))
   body.appendChild(switchRow('阴影', '主体投影', () => o().shadow_show, v => { o().shadow_show = v }))
   body.appendChild(rangeRow('阴影大小', '', 0, 20, 0.5, () => o().shadow, v => { o().shadow = v; o().shadow_show = true }, v => `${v}%`))
   body.appendChild(rangeRow('上下留白', '画面边缘到主体的距离', 0, 12, 0.5, () => o().mini_top_bottom_margin, v => { o().mini_top_bottom_margin = v }, v => `${v}%`))
@@ -936,6 +936,29 @@ function bind() {
   window.__yiyinBack = () => {
     if ($('#sheet').classList.contains('on')) { closeSheet(); return true }
     return false
+  }
+
+  // 从别的 App 用「壹印」打开图片：原生分块灌 base64 进来
+  let incoming = null
+  window.__yiyinOpenBegin = (name) => { incoming = { name, parts: [] } }
+  window.__yiyinOpenChunk = (chunk) => { if (incoming && chunk) incoming.parts.push(chunk) }
+  window.__yiyinOpenEnd = async () => {
+    if (!incoming) return
+    const { name, parts } = incoming
+    incoming = null
+    try {
+      const bin = atob(parts.join(''))
+      const bytes = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+      const type = /\.png$/i.test(name) ? 'image/png' : (/\.(heic|heif)$/i.test(name) ? 'image/heic' : 'image/jpeg')
+      await addFiles([new File([bytes], name, { type })])
+      state.tab = 'frame'
+      renderTab()
+    }
+    catch (e) {
+      console.error(e)
+      toast(`打开图片失败：${e.message || e}`)
+    }
   }
 }
 

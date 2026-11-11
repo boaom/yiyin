@@ -29,7 +29,9 @@ import android.widget.Toast;
 import org.json.JSONObject;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -103,6 +105,12 @@ public class MainActivity extends Activity {
                             new HashMap<String, String>(), new ByteArrayInputStream("404".getBytes(StandardCharsets.UTF_8)));
                 }
             }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                pageReady = true;
+                sendPendingUri();
+            }
         });
 
         webView.setWebChromeClient(new WebChromeClient() {
@@ -136,6 +144,86 @@ public class MainActivity extends Activity {
         });
 
         webView.loadUrl(HOME_URL);
+        pendingViewUri = extractImageUri(getIntent());
+    }
+
+    private Uri extractImageUri(Intent intent) {
+        if (intent == null) return null;
+        String action = intent.getAction();
+        if (Intent.ACTION_VIEW.equals(action)) return intent.getData();
+        if (Intent.ACTION_SEND.equals(action)) {
+            if (Build.VERSION.SDK_INT >= 33) {
+                return intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
+            }
+            Object extra = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            return extra instanceof Uri ? (Uri) extra : null;
+        }
+        return null;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        pendingViewUri = extractImageUri(intent);
+        sendPendingUri();
+    }
+
+    private InputStream openStream(Uri uri) throws IOException {
+        String scheme = uri.getScheme() == null ? "" : uri.getScheme();
+        if ("file".equals(scheme)) return new FileInputStream(new File(uri.getPath()));
+        InputStream is = getContentResolver().openInputStream(uri);
+        if (is == null) throw new IOException("无法读取该文件");
+        return is;
+    }
+
+    private String displayNameOf(Uri uri) {
+        try {
+            String[] proj = {MediaStore.MediaColumns.DISPLAY_NAME};
+            android.database.Cursor c = getContentResolver().query(uri, proj, null, null, null);
+            if (c != null) {
+                try {
+                    if (c.moveToFirst()) {
+                        String n = c.getString(0);
+                        if (n != null && !n.isEmpty()) return n;
+                    }
+                } finally {
+                    c.close();
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        String last = uri.getLastPathSegment();
+        return last == null || last.isEmpty() ? "image.jpg" : last;
+    }
+
+    private void sendPendingUri() {
+        final Uri uri = pendingViewUri;
+        if (uri == null || !pageReady || webView == null) return;
+        pendingViewUri = null;
+
+        final String name = displayNameOf(uri);
+        new Thread(() -> {
+            try (InputStream is = openStream(uri)) {
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                byte[] buf = new byte[64 * 1024];
+                int n;
+                while ((n = is.read(buf)) > 0) bos.write(buf, 0, n);
+                String b64 = Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP);
+
+                runOnUiThread(() -> webView.evaluateJavascript(
+                        "window.__yiyinOpenBegin(" + JSONObject.quote(name) + ")", null));
+                final int chunk = 200 * 1024;
+                for (int i = 0; i < b64.length(); i += chunk) {
+                    final String part = b64.substring(i, Math.min(b64.length(), i + chunk));
+                    runOnUiThread(() -> webView.evaluateJavascript(
+                            "window.__yiyinOpenChunk(" + JSONObject.quote(part) + ")", null));
+                }
+                runOnUiThread(() -> webView.evaluateJavascript("window.__yiyinOpenEnd()", null));
+            } catch (Exception e) {
+                toast("打开图片失败：" + e.getMessage());
+            }
+        }).start();
     }
 
     private static String mimeOf(String path) {
@@ -196,6 +284,7 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         if (webView != null) {
             webView.removeJavascriptInterface("YiyinAndroid");
+            pageReady = false;
             webView.destroy();
         }
         super.onDestroy();
@@ -282,6 +371,8 @@ public class MainActivity extends Activity {
     }
 
     private String lastResult = "{}";
+    private Uri pendingViewUri;
+    private boolean pageReady;
 
     private void fail(String msg) {
         try {

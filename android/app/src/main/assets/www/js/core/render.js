@@ -91,6 +91,21 @@ function blurBg(src, w, h, opt) {
 }
 
 // 移植 web/modules/image-tool/index.ts#genMainImgShadow
+function roundedRectPath(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2)
+  ctx.beginPath()
+  ctx.moveTo(x + rr, y)
+  ctx.lineTo(x + w - rr, y)
+  ctx.arcTo(x + w, y, x + w, y + rr, rr)
+  ctx.lineTo(x + w, y + h - rr)
+  ctx.arcTo(x + w, y + h, x + w - rr, y + h, rr)
+  ctx.lineTo(x + rr, y + h)
+  ctx.arcTo(x, y + h, x, y + h - rr, rr)
+  ctx.lineTo(x, y + rr)
+  ctx.arcTo(x, y, x + rr, y, rr)
+  ctx.closePath()
+}
+
 function genMask(bgCanvas, mainCanvas, mainTop, opt, rate) {
   const W = Math.max(1, Math.floor(bgCanvas.width * rate))
   const H = Math.max(1, Math.floor(bgCanvas.height * rate))
@@ -217,7 +232,17 @@ export async function renderYiyin(p) {
   const ctx = out.getContext('2d')
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, bg.w, bg.h)
+
+  // 主图：圆角直接裁切照片本身（抗锯齿），不靠蒙层遮挡
+  const cornerR = opt.radius_show ? Math.ceil(main.h * ((opt.radius || 2.1) / 100)) : 0
+  ctx.save()
+  if (cornerR > 0) {
+    roundedRectPath(ctx, main.left, main.top, main.w, main.h, cornerR)
+    ctx.clip()
+  }
   ctx.drawImage(main.canvas, main.left, main.top, main.w, main.h)
+  ctx.restore()
+
   ctx.drawImage(maskCanvas, 0, 0, bg.w, bg.h)
 
   for (let i = textImages.length - 1, top = bg.h; i >= 0; i--) {
